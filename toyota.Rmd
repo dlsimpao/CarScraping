@@ -89,8 +89,11 @@ MPG_c_h = MPG_c_h %>%
 
 # Create table of available Toyota models in 93311
 ```{r}
+toyota = toyota %>% 
+    mutate_if(is.factor, as.character())
+
 toyota = tibble(Model = Name, 
-                Image = as.character(images),
+                Image = images,
                 Model_Year = Model_Year,
                 Cost = Cost,
                 MPG_city = MPG_c_h$MPG_c,
@@ -114,7 +117,7 @@ h2 %>%
   html_nodes("div") %>% 
   html_nodes("span")
 
-%>% 
-  html_nodes(xpath = "//*[@class='inventory-card']")
+#%>% 
+#  html_nodes(xpath = "//*[@class='inventory-card']")
   
 ```

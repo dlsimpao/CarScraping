@@ -1,3 +1,186 @@
-```{r}
+```{r, message = FALSE}
+library(tidyverse)
+library(rvest)
+library(RSelenium)
+requireNamespace("wdman")
+requireNamespace("httpuv")
+```
 
+```{r}
+url = "https://www.hyundaiusa.com/us/en/vehicles"
+
+```
+
+# Initialize remote driver
+```{r}
+port <- httpuv::randomPort()
+# find a version of chromedriver that is compatible with your chrome
+# binman::list_versions("chromedriver")
+server <- wdman::chrome(port = port, version = "91.0.4472.19", verbose = FALSE)
+rd <- remoteDriver(port = port)
+```
+
+```{r}
+#rd$errorDetails()
+rd$open(silent = TRUE)
+# check if there is any error messages
+stopifnot(is.null(rd$sessionInfo$message))
+
+rd$navigate(url)
+```
+# Set correct location
+```{r}
+rd$findElement("css",".global-header-dropdown-dealer-zipcode")$clickElement()
+rd$findElement("css","#fadn-zipcode")$clickElement()
+rd$doubleclick()
+rd$sendKeysToActiveElement(list("93311"))
+rd$sendKeysToActiveElement(list(key = "enter"))
+```
+
+# Rvest scraping
+```{r}
+h = rd$getPageSource()[[1]] %>% read_html()
+
+# scrape Hyundai model name
+Model = h %>% 
+  html_nodes(".vbws-items") %>% 
+  html_nodes(".vbws-car-name") %>% 
+  html_text() %>% 
+  iconv(.,"", "ASCII","byte") %>% #for some reason, we need to convert to ASCII encoding first before gsubbing it out
+  gsub("<.*","",.)
+
+# scrape Hyundai model year
+Year = h %>% 
+  html_nodes(".vbws-items") %>% 
+  html_nodes(".vbws-car-year") %>% 
+  html_text() %>% 
+  gsub("[\t\n]","",.) %>% 
+  as.numeric()
+
+# scrape incoming cars? #cars labeled Starting or Coming
+Available = h %>%
+  html_nodes(".vbws-spec-label") %>% 
+  html_text() %>% 
+  grep("(Starting at|Coming)",.,value = TRUE) %>% 
+  gsub("[\n\t]","",.) %>% 
+  gsub(" S","S",.)
+
+# scrape Hyundai cost, does not include values for incoming cars
+Costs = h %>% 
+  html_nodes(xpath = "//*[@data-price='value']") %>% 
+  html_text() %>% 
+  gsub("[/$,]","",.) %>% 
+  as.numeric()
+
+# scrape images
+Image = h %>% 
+  html_nodes(".vbws-car-image-link") %>% 
+  html_nodes("img") %>% 
+  html_attr("src")
+
+# Tagline shows if car is electric, hybrid, fuel-cell
+
+Tagline = h %>%
+  html_nodes(".vbws-car-tagline") %>% 
+  html_text()%>%
+  gsub("[\n\t]","",.)
+  
+
+#MPG differ due to FWD (front wheel drive) AWD (all wheel drive)
+#Some of them are electric and have no MPG, scrape for range
+# scrape Hyundai mpg city
+
+#Power(hp/kW)
+elec_hpkw = h %>% 
+  html_nodes(".vbws-items") %>% 
+  html_nodes(".vbws-spec-value") %>% 
+  html_text() %>% 
+  grep("([0-9]{3}\\/[0-9]{3})",.,value=TRUE) %>% 
+  gsub("[\n\t]","",.) %>% 
+  gsub(" ","",.) %>% 
+  iconv(.,"", "ASCII","byte") %>% #for some reason, we need to convert to ASCII encoding first before gsubbing it out
+  gsub("<.*","",.)
+
+elec_range = h %>% 
+  html_nodes(".vbws-items") %>% 
+  html_nodes(".vbws-spec-value") %>% 
+  html_text() %>% 
+  gsub("[\n\t]","",.) %>% 
+  grep("[0-9]{3}\\s*(miles)",.,value=TRUE) %>% 
+  gsub("([0-9]{3}).*","\\1",.) #get all electric/fuel cell vehicle's range
+
+MPG_c = h %>% 
+  html_nodes(".vbws-items") %>% 
+  html_nodes(".vbws-spec-value") %>% 
+  html_text() %>% 
+  grep("(City|Hwy)",.,value=TRUE) %>% 
+  gsub("[\n\t]","",.) %>% 
+  str_extract(.,"(FWD\\s[0-9]{2}\\s|AWD\\s[0-9]{2}\\s)?(City/)[0-9]{2}") %>%
+  na.omit()
+
+# scrape Hyundai mpg hw
+MPG_h = h %>% 
+  html_nodes(".vbws-items") %>% 
+  html_nodes(".vbws-spec-value") %>% 
+  html_text() %>% 
+  grep("(City|Hwy)",.,value=TRUE) %>% 
+  gsub("[\n\t]","",.) %>% 
+  str_extract(.,"(Hwy/)[0-9]{2}") %>% 
+  na.omit()
+  
+```
+
+# Preliminary data frame
+ - still need to add cost to only available models
+ - understand and fix mpgs city and hw
+ - do I include availability? yes
+ 
+```{r}
+# this df does not have costs, mpg, elec range yet
+hyundai_temp = tibble(id = 1:length(Model), 
+                      Model = Model, 
+                      Tag = Tagline,
+                      Image = Image, 
+                      Model_Year = Year,
+                      Available = Available, 
+                      Make = "Hyundai")
+```
+
+# left_join costs into hyundai temp
+```{r}
+#available
+hyundai_avail = hyundai_temp %>% 
+  filter(Available == "Starting at") %>% 
+  transmute(id, Tag, Cost = Costs)
+
+#available electric/fuel cell
+hyundai_avail_elec = hyundai_avail %>% 
+  filter(grepl("(Electric)",.$Tag)| grepl("(Fuel-cell)",.$Tag)) %>% 
+  transmute(id, Elec_hpkw = elec_hpkw, Elec_Range_miles = elec_range)
+  
+#available gas
+hyundai_avail_gas = hyundai_avail %>% 
+  filter(!(grepl("(Electric)",.$Tag)| grepl("(Fuel-cell)",.$Tag))) %>% 
+  transmute(id, MPG_city = MPG_c, MPG_hw = MPG_h)
+
+
+
+# this df does not have mpg columns
+hyundai_avail = hyundai_avail %>% select(-c(Tag))
+hyundai_temp = left_join(hyundai_temp, hyundai_avail, by = c("id"))
+
+
+hyundai_temp = left_join(hyundai_temp, hyundai_avail_gas, by = c("id"))
+hyundai_temp = left_join(hyundai_temp, hyundai_avail_elec, by = c("id"))
+```
+
+```{r}
+hyundai = hyundai_temp %>% 
+  filter(Available == "Starting at") %>% 
+  mutate_if(is.factor, as.character()) %>% 
+  select(Model, Tag, Image,Model_Year, Cost, MPG_city, MPG_hw,Elec_hpkw, Elec_Range_miles, Make)
+
+write.csv(hyundai, "hyundai.csv")
+
+View(hyundai)
 ```
