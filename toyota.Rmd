@@ -1,0 +1,120 @@
+```{r, message = FALSE}
+library(tidyverse)
+library(rvest)
+library(RSelenium)
+```
+
+```{r}
+url = "https://www.toyota.com/search-inventory/"
+
+h = url %>% 
+  read_html()
+
+#scrape title
+
+Name = h %>% 
+  html_nodes(".vehicle-card") %>% 
+  html_nodes(".title") %>% 
+  html_text() %>% #preprocessing 
+  gsub("\n","",.) %>% 
+  gsub(" ","",.) %>% 
+  gsub("(Hybrid|Hatchback|Prime|Supra)"," \\1",.) #add back white space between names
+
+#scrape image
+image_ind = h %>% 
+  html_nodes(".vehicle-card") %>% 
+  html_nodes("source") %>% 
+  html_nodes(xpath = "//*[@media='(min-width: 1024px)']") %>% 
+  html_attr("data-srcset")  %>% 
+  grepl("jpeg",.)
+
+images = h %>% 
+  html_nodes(".vehicle-card") %>% 
+  html_nodes("source")  %>% 
+  html_nodes(xpath = "//*[@media='(min-width: 1024px)']") %>% 
+  html_attr("data-srcset")
+
+# take only jpeg
+images = images[image_ind]
+
+# concatenate url
+images = images %>% 
+  gsub("?bg=fff&fm=jpeg&q=90&w=768","",.)
+
+#scrape year
+
+Model_Year = h %>% 
+  html_nodes(".vehicle-card") %>% 
+  html_nodes(".model-year") %>%
+  html_text() %>% 
+  gsub("\n","",.) %>% 
+  gsub(" ","",.) %>% 
+  as.numeric()
+
+Details = h %>% 
+  html_nodes(".vehicle-card") %>% 
+  html_nodes(".header") %>%
+  html_text() %>% 
+  gsub("\n","",.) %>% 
+  gsub(" ","",.)
+
+#scrape cost (boolean)
+Cost_ind = h %>% 
+  html_nodes(".vehicle-card") %>% 
+  html_nodes(".header") %>%
+  html_text() %>% 
+  gsub("\n","",.) %>% 
+  gsub(" ","",.) %>% 
+  grepl("\\$",.)
+
+Cost = Details[Cost_ind] %>% 
+  gsub("[,$]","",.) %>% 
+  as.numeric()
+
+#scrape website mpg (boolean)
+MPG_listed_ind = h %>% 
+  html_nodes(".vehicle-card") %>% 
+  html_nodes(".header") %>%
+  html_text() %>% 
+  gsub("\n","",.) %>% 
+  gsub(" ","",.) %>% 
+  grepl("\\/",.)
+
+MPG_c_h = Details[MPG_listed_ind]
+
+MPG_c_h = MPG_c_h %>% 
+  tibble(MPG_c_h = .) %>% 
+  separate(MPG_c_h, into = c("MPG_c","MPG_h"), sep = "/")
+```
+
+# Create table of available Toyota models in 93311
+```{r}
+toyota = tibble(Model = Name, 
+                Image = as.character(images),
+                Model_Year = Model_Year,
+                Cost = Cost,
+                MPG_city = MPG_c_h$MPG_c,
+                MPG_hw = MPG_c_h$MPG_h,
+                Make = "Toyota")
+write.csv(toyota,"toyota.csv")
+
+View(toyota)
+```
+# Query car image - `renderUi image`
+```{r}
+toyota %>% filter(Name == "Camry") %>% select(Image) %>% .[1,]
+```
+
+# Toyota - Used Cars (POSTPONED)
+```{r}
+url2 = "https://www.toyotacertified.com/inventory;zipCode=93311"
+h2 = read_html(url2)
+
+h2 %>% 
+  html_nodes("div") %>% 
+  html_nodes("span")
+
+%>% 
+  html_nodes(xpath = "//*[@class='inventory-card']")
+  
+```
