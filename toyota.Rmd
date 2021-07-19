@@ -26,21 +26,7 @@ In order to see the elements of the html document for Windows, right click and s
 
 h %>% 
   html_nodes(".title") %>% 
-  html_text()
-
-
-```
-
-```{r}
-
-#scrape title
-
-s = h %>% 
-  html_nodes(".title") %>% 
-  html_text() %>% #preprocessing 
-  gsub("\n","",.) %>% 
-  gsub(" ","",.) %>% 
-  gsub("(Hybrid|Hatchback|Prime|Supra)"," \\1",.) #add back white space between names
+  html_text(trim = TRUE)
 
 
 ```
@@ -54,40 +40,55 @@ s = h %>%
 - mpg
 ```{r}
 #scrape image
-image_ind = h %>% 
+
+h %>% 
+  html_nodes(".vehicle-card") %>% 
+  html_nodes("source") %>% 
+  head(6)
+
+```
+```{r}
+h %>% 
+  html_nodes(".vehicle-card") %>% 
+  html_nodes("source") %>% 
+  html_nodes(xpath = "//*[@media='(min-width: 1024px)']")
+```
+```{r}
+h %>% 
   html_nodes(".vehicle-card") %>% 
   html_nodes("source") %>% 
   html_nodes(xpath = "//*[@media='(min-width: 1024px)']") %>% 
   html_attr("data-srcset")  %>% 
-  grepl("jpeg",.)
+  grep("jpeg",., value = TRUE)
+```
 
+```{r}
 images = h %>% 
   html_nodes(".vehicle-card") %>% 
-  html_nodes("source")  %>% 
+  html_nodes("source") %>% 
   html_nodes(xpath = "//*[@media='(min-width: 1024px)']") %>% 
-  html_attr("data-srcset")
-
-# take only jpeg
-images = images[image_ind]
+  html_attr("data-srcset")  %>% 
+  grep("jpeg",., value = TRUE)
 
 # concatenate url
 images = images %>% 
   gsub("?bg=fff&fm=jpeg&q=90&w=768","",.)
+```
 
+
+```{r}
 #scrape year
 
 Model_Year = h %>% 
   html_nodes(".vehicle-card") %>% 
   html_nodes(".model-year") %>%
-  html_text() %>% 
-  gsub("\n","",.) %>% 
-  gsub(" ","",.) %>% 
+  html_text(trim = TRUE) %>% 
   as.numeric()
 
 Details = h %>% 
   html_nodes(".vehicle-card") %>% 
   html_nodes(".header") %>%
-  html_text() %>% 
+  html_text(trim = TRUE) %>% 
   gsub("\n","",.) %>% 
   gsub(" ","",.)
 
@@ -95,9 +96,7 @@ Details = h %>%
 Cost_ind = h %>% 
   html_nodes(".vehicle-card") %>% 
   html_nodes(".header") %>%
-  html_text() %>% 
-  gsub("\n","",.) %>% 
-  gsub(" ","",.) %>% 
+  html_text(trim = TRUE) %>% 
   grepl("\\$",.)
 
 Cost = Details[Cost_ind] %>% 
@@ -108,9 +107,7 @@ Cost = Details[Cost_ind] %>%
 MPG_listed_ind = h %>% 
   html_nodes(".vehicle-card") %>% 
   html_nodes(".header") %>%
-  html_text() %>% 
-  gsub("\n","",.) %>% 
-  gsub(" ","",.) %>% 
+  html_text(trim = TRUE) %>% 
   grepl("\\/",.)
 
 MPG_c_h = Details[MPG_listed_ind]
