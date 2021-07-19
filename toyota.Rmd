@@ -3,23 +3,56 @@ library(tidyverse)
 library(rvest)
 library(RSelenium)
 ```
-
+First, identify the url of the website you want to scrape. If you want to follow the tutorial, we will scrape the Toyota
 ```{r}
 url = "https://www.toyota.com/search-inventory/"
+
+```
+
+```{r}
 
 h = url %>% 
   read_html()
 
+```
+
+In order to see the elements of the html document for Windows, right click and select "Inspect." You can also press `Ctrl`+`Shift`+I. For Mac users, you can use the `Command`+Shift+C (You may need to change some settings in Developer Tools). Your screen should split into two. The left panel should show the original website, while the right panel should show the mark up structure of the html document. On the right panel, click on the top left icon that should show a square box with a mouse inside. It allows you to "Select an element in the page to inspect it."
+
+![Image of Inspecting a Website](inspect_titles.png)
+
+```{r}
+
 #scrape title
 
-Name = h %>% 
-  html_nodes(".vehicle-card") %>% 
+h %>% 
+  html_nodes(".title") %>% 
+  html_text()
+
+
+```
+
+```{r}
+
+#scrape title
+
+s = h %>% 
   html_nodes(".title") %>% 
   html_text() %>% #preprocessing 
   gsub("\n","",.) %>% 
   gsub(" ","",.) %>% 
   gsub("(Hybrid|Hatchback|Prime|Supra)"," \\1",.) #add back white space between names
 
+
+```
+
+
+# Other car features to practice scraping
+
+- image
+- model year
+- cost
+- mpg
+```{r}
 #scrape image
 image_ind = h %>% 
   html_nodes(".vehicle-card") %>% 
@@ -87,11 +120,8 @@ MPG_c_h = MPG_c_h %>%
   separate(MPG_c_h, into = c("MPG_c","MPG_h"), sep = "/")
 ```
 
-# Create table of available Toyota models in 93311
+# Create table of available Toyota models
 ```{r}
-toyota = toyota %>% 
-    mutate_if(is.factor, as.character())
-
 toyota = tibble(Model = Name, 
                 Image = images,
                 Model_Year = Model_Year,
@@ -99,13 +129,13 @@ toyota = tibble(Model = Name,
                 MPG_city = MPG_c_h$MPG_c,
                 MPG_hw = MPG_c_h$MPG_h,
                 Make = "Toyota")
+
+toyota = toyota %>% 
+    mutate_if(is.factor, as.character())
+
 write.csv(toyota,"toyota.csv")
 
 View(toyota)
-```
-# Query car image - `renderUi image`
-```{r}
-toyota %>% filter(Name == "Camry") %>% select(Image) %>% .[1,]
 ```
 
 # Toyota - Used Cars (POSTPONED)
