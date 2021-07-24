@@ -15,6 +15,8 @@ shinyServer(function(input, output, session) {
             df = toyota$Model
         }else if(make() == "Hyundai"){
             df = hyundai$Model
+        }else if(make() == "Honda"){
+            df = honda$Model
         }
         df
     })
@@ -28,29 +30,32 @@ shinyServer(function(input, output, session) {
     # if apply is hit, calculate probabilities and store in a data frame
     disp_table = eventReactive(input$search,{
         if(input$make == "Toyota"){
-            df = toyota
-            df = df %>% filter(Model == input$model) %>% 
+            df = toyota %>% filter(Model == input$model) %>% 
                 select(Model, Model_Year, Cost, MPG_city, MPG_hw)
         }else if(input$make == "Hyundai"){
-            df = hyundai
-            df = df %>% filter(Model == input$model) %>% 
+            df = hyundai %>% filter(Model == input$model) %>% 
                 select(Model, Model_Year, Cost, MPG_city, MPG_hw, Elec_hpkw,
                        Elec_Range_miles)
+        }else if(input$make == "Honda"){
+            df = honda %>% filter(Model == input$model) %>% 
+                select(Model, Model_Year, Cost, MPG_city, MPG_hw)
         }
         df
     })
     
     disp_img = eventReactive(input$search,{
         if(input$make == "Toyota"){
-            df = toyota
-            df = df %>% filter(Model == input$model) %>% 
+            df = toyota %>% filter(Model == input$model) %>% 
                 select(Image) %>% 
                 .[1,] 
         }else if(input$make == "Hyundai"){
-            df = hyundai
-            df = df %>% filter(Model == input$model) %>% 
+            df = hyundai %>% filter(Model == input$model) %>% 
                 select(Image) %>% 
                 .[1,] 
+        }else if(input$make == "Honda"){
+            df = honda %>% filter(Model == input$model) %>% 
+                select(Image) %>% 
+                .[1,]
         }
         df
     })

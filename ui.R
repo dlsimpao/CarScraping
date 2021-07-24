@@ -11,7 +11,7 @@ shinyUI(fluidPage(
     sidebarLayout(
         sidebarPanel(
             helpText("Limited make and locations for now:"),
-            selectInput("make", "Select Make:", c("Toyota", "Hyundai"), selected = "Toyota"),
+            selectInput("make", "Select Make:", c("Toyota", "Hyundai","Honda"), selected = "Toyota"),
             selectInput("model", "Select Model:",  ""),
             selectInput("location", "Select location", c("93311")),
             

@@ -1,0 +1,92 @@
+#Honda and Acura
+```{r, message=FALSE}
+library(tidyverse)
+library(rvest)
+library(RSelenium)
+```
+
+```{r}
+#URL for Acura
+urla = "https://www.acura.com/inventory-results"
+#URL for Honda
+urlh = "https://automobiles.honda.com/tools/inventory-model"
+```
+
+# Initialize remote driver
+```{r}
+port <- httpuv::randomPort()
+# find a version of chromedriver that is compatible with your chrome
+# binman::list_versions("chromedriver")
+server <- wdman::chrome(port = port, version = "91.0.4472.19", verbose = FALSE)
+rd <- remoteDriver(port = port)
+```
+
+#RSelenium
+We use RSelenium for dynamic webpages
+```{r}
+#rd$errorDetails()
+rd$open(silent = TRUE)
+# check if there is any error messages
+stopifnot(is.null(rd$sessionInfo$message))
+
+rd$navigate(urlh)
+```
+
+```{r}
+hh = rd$getPageSource()[[1]] %>% read_html()
+```
+
+#Name 
+```{r}
+Model_Name = hh %>%
+  html_nodes("article h5") %>% 
+  html_text() %>% 
+  tibble(Year_and_Model = .)
+
+#Model_info contains year and model name
+Model_info = Model_Name %>% 
+  separate(Year_and_Model, into = c("Year","Model"), sep = " ") %>% 
+  mutate(Year = as.numeric(Year))
+
+
+```
+
+#Cost, Image, MPG
+```{r}
+Cost = hh %>% 
+  html_nodes("article span") %>% 
+  html_text(trim = TRUE) %>% 
+  grep("\\$",.,value = TRUE) %>% 
+  gsub("[\\$,]","",.) %>% 
+  as.numeric()
+
+MPG = hh %>% 
+  html_nodes("article span") %>% 
+  html_text(trim = TRUE) %>% 
+  grep("\\/",.,value = TRUE) %>% 
+  tibble(MPG_ch = .)
+
+MPG_info = MPG %>%
+  separate(MPG_ch, into = c("MPG_city", "MPG_hw"), sep = "\\/") %>% 
+  mutate(MPG_city = as.numeric(MPG_city),
+         MPG_hw = as.numeric(MPG_hw))
+  
+
+#https://automobiles.honda.com
+Image = hh %>% 
+  html_nodes(".image img") %>% 
+  html_attr("src") %>% 
+  paste0("https://automobiles.honda.com",.) %>% 
+  .[c(TRUE,FALSE)] #need to check if images correspond correctly, two images per model extracted
+```
+
+```{r}
+honda = tibble(Model = Model_info$Model,
+               Model_Year = Model_info$Year,
+               Image = Image,
+               Cost = Cost,
+               MPG_city = MPG_info$MPG_city,
+               MPG_hw = MPG_info$MPG_hw)
+
+write.csv(honda, "honda.csv")
+```
