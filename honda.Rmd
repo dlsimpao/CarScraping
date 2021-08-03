@@ -33,11 +33,22 @@ rd$navigate(urlh)
 ```
 
 ```{r}
-hh = rd$getPageSource()[[1]] %>% read_html()
+hh = tryCatch({
+  hh = readRDS("honda_dynamicwb.RData")
+  message("Used RData")
+  return(hh)
+  },
+  error = function(cond) {
+  hh = rd$getPageSource()[[1]] %>% read_html()
+  saveRDS(hh, file = "honda_dynamicwb.RData")
+  return(hh)
+  })
 ```
 
 #Name 
 ```{r}
+
+
 Model_Name = hh %>%
   html_nodes("article h5") %>% 
   html_text() %>% 

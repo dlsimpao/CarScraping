@@ -4,7 +4,7 @@ library(shiny)
 shinyUI(fluidPage(
     
     # Application title
-    titlePanel("Car Information - 93311"),
+    titlePanel("Car Information - xxxxx"),
     
     
     # Sidebar with a slider input for number of bins
@@ -13,7 +13,7 @@ shinyUI(fluidPage(
             helpText("Limited make and locations for now:"),
             selectInput("make", "Select Make:", c("Toyota", "Hyundai","Honda"), selected = "Toyota"),
             selectInput("model", "Select Model:",  ""),
-            selectInput("location", "Select location", c("93311")),
+            selectInput("location", "Select location", c("xxxxx")),
             
             actionButton("search","Search")
         ),
